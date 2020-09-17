@@ -13,14 +13,12 @@
 #include <boost/multiprecision/cpp_int.hpp>
 
 
-constexpr auto CountBitsInBigInt = 2048;
-using big_int = boost::multiprecision::number<boost::multiprecision::cpp_int_backend<CountBitsInBigInt, CountBitsInBigInt, boost::multiprecision::signed_magnitude, boost::multiprecision::unchecked, void> >;
+constexpr auto CountBitsInBlock = 2048;
+using big_int = boost::multiprecision::cpp_int;
 
-static const big_int MAX_NUMBER = power(big_int(2), (CountBitsInBigInt / 2) - 1, std::multiplies<big_int>());
-static const big_int MIN_PRIME_NUMBER = [] {
-    big_int result = MAX_NUMBER / 10;
-    return (result & 1) == 0 ? result - 1 : result;
-}();
+
+static const big_int MIN_PRIME_NUMBER = power(big_int(2), CountBitsInBlock, std::multiplies<big_int>()) + 1;
+static const big_int MAX_PRIME_NUMBER = MIN_PRIME_NUMBER + 10000;
 
 
 struct PrimesWriter
@@ -64,7 +62,7 @@ struct WritePrimes
 
         while (p < to_ && !writer_->EnoughPrimes())
         {
-            if (is_prime<big_int, CountBitsInBigInt / 2>(p, gen_))
+            if (is_prime<big_int, 100>(p, gen_))
             {
                 if(!writer_->EnoughPrimes())
                     writer_->Write(p);
@@ -89,13 +87,13 @@ int main()
     std::random_device rd;
 
     const auto hardwareThreads = std::thread::hardware_concurrency() - 1;
-    const auto numbersPerThread = (MAX_NUMBER - MIN_PRIME_NUMBER) / hardwareThreads;
+    const auto numbersPerThread = (MAX_PRIME_NUMBER - MIN_PRIME_NUMBER) / hardwareThreads;
 
     PrimesWriter primesWriter("very_big_primes.txt", countPrimeNumbers);
     std::vector<std::future<void>> futures;
 
     big_int from = MIN_PRIME_NUMBER;
-    while(from < MAX_NUMBER)
+    while(from < MAX_PRIME_NUMBER)
     {
         big_int to = from + numbersPerThread;
         futures.emplace_back(std::async(std::launch::async, WritePrimes(rd, from, to, primesWriter)));
